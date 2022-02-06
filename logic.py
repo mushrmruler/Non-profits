@@ -1,13 +1,10 @@
-
 # %%
 import pandas as pd
 import numpy as np
+from scipy import stats
 
 # %% [markdown]
 # Этот модуль нужно будет подставить вместо того кода, который сейчас находится в проекте по адресу: /example/index/views/py. Начиная со строк `import pandas`, до `context={`
-
-# %%
-from scipy import stats
 
 # %%
 # Функция которая приравнивает два значения по доверительному интервалу 0.95
@@ -66,7 +63,10 @@ TableGroups = pd.DataFrame({'Стратегия и планирование':[['
     'Волонтеры':[['Q18_r1','Q18_r2','Q18_r3']],
     'Финансовая устойчивость':[['Q20_r1','Q20_r2','Q20_r3','Q22_r1','Q22_r2','Q22_r3','Q22_r4','Q27_r1','Q27_r2','Q27_r3','Q27_r4']],
     'Внешние коммуникации':[['Q28_r1','Q28_r2','Q28_r3','Q28_r4','Q28_r5','Q28_r6','Q30_r1','Q30_r2','Q30_r3','Q30_r4','Q30_r5']],
-    'Адвокация':[['Q31_r1','Q31_r2','Q31_r3']]})
+    'Адвокация':[['Q31_r1','Q31_r2','Q31_r3']],
+    'Открытость изменениям':[['Q09_r4', 'Q12_r4', 'Q12_r5', 'Q14_r4']],
+    'Работа с рисками':[['Q03_r6', 'Q07_r2', 'Q09_r3', 'Q14_r6', 'Q15original_for_index', 'Q22_r1', 'Q22_r3', 'Q28_r4' ]], 
+    'Оценка и мониторинг':[['Q03_r5', 'Q12_r6', 'Q12_r7', 'Q14_r5', 'Q18_r3', 'Q27_r4']]})
 
 # %%
 # Датафрейм, в котором содержатся направления НКО
@@ -82,20 +82,32 @@ Table_main = Table_main.groupby(by='Направление').mean().round(2)
 Table_main = Table_main.T
 
 # %%
+# Table_main.loc['Стратегия и планирование'].mean().round(2)
+Table_main.mean(axis=1).round(2)
+
+# %%
 # Эта функция получает номер вопроса, номер аксес ключа организации 
 # Опциально: округление(round в документе) и название вида деятельности 
 class Search:
-    def __init__(self, index, ac, activity = None):
+    def __init__(self, index, ac, activity = None, multiple=False):
         self.index = index
         self.ac = ac
         self.activity = activity
+        self.multiple = multiple
     
         self.dataframe = Table 
         if self.activity != None: # Получаем название направления и фильтруем по нему
             self.dataframe = Table[Table['Направление'].str.contains(self.activity)]
+        
         self.nonprofit =  self.dataframe.loc[ac,index]
         self.mean = self.dataframe.loc[:,index].mean().round(2)
-        
+        self.general = self.dataframe.loc[:,self.index]
+
+        if self.multiple == True:
+            self.dataframe = self.dataframe.loc[:,self.index]
+            self.nonprofit =  round(self.dataframe.loc[self.ac,:].mean(),2)
+            self.mean = round(self.dataframe.mean(axis=1).mean(), 2)
+            self.general = round(self.dataframe.loc[:,self.index].mean(axis=1),2)
 
     def return_comparison(self, round=False, activity=None):
         if round == True: # Иногда нам нужно округлять сравниваемое значение до целого
@@ -104,7 +116,7 @@ class Search:
         if CheckNan(self.nonprofit, self.mean):
             return ('nan')
         # Equals получает на вход столбец для подсчета доверительного интервала
-        elif Equals(self.nonprofit, self.dataframe.loc[:,self.index]): 
+        elif Equals(self.nonprofit, self.general):
             return ('equals')
         elif self.nonprofit > self.mean:
             return ('more')
@@ -121,22 +133,30 @@ class Search:
             return True
         else:
             return False
+    def is_lower(self):
+        if CheckNan(self.nonprofit, self.mean):
+            return None
+        if (self.nonprofit.round() <= 3) & (self.mean.round() <= 3):
+            return True
+        else:
+            return False
+
+# %%
+Table.loc[:,'OD_mean'].mean().round(2)
 
 # %%
 ac = 4
-SearchResults = Search('OD_mean',ac)
-SearchResults.return_comparison()
-SearchResults.return_value()
-SearchResults.is_upper()
+SearchResults = Search(['OD_mean','risk'],ac,multiple=True)
+SearchResults.return_comparison() #SearchResults.return_value(), SearchResults.is_upper()
 
 # %%
 # Ответы на вопросы хранятся в этом классе
 class Answer():
-    def __init__(self,nan,equals,more,less):
-        self.nan = 'На большую часть вопросов вы затруднились ответить, к сожалению, мы не можем рассчитать для вас среднее значение по данному показателю.'
-        self.equals = equals
+    def __init__(self,more,less,equals,nan):
         self.more = more
         self.less = less
+        self.equals = equals
+        self.nan = nan
 
     def answertext(self, state): #по какой-то причине питон не даёт мне назвать её через _ или с другой капитализацией :(
         match state:
@@ -150,24 +170,25 @@ class Answer():
                 return self.less 
 
 # %%
-# Пример класса с ответами
-OD = Answer('На большую часть утверждений вы затруднились ответить. К сожалению, мы не смогли рассчитать значение уровня организационного развития вашей НКО.',
-    'Уровень организационного развития вашей НКО сопоставимый и составляет {personal_value}',
-    'Уровень организационного развития вашей НКО выше и составляет {personal_value}',
-    'Уровень организационного развития вашей НКО ниже и составляет {personal_value}')
-
-# %%
 # Итоговая функция
-def Get_text(ac, index, answer):
-    SearchResults = Search(index,ac)
-    return answer.answertext(SearchResults.return_comparison()).format(personal_value=SearchResults.return_value())
+# Нужно дополнить
+def Get_text(search, answer):
+    #SearchResults = Search(index, ac)
+    return answer.answertext(search.return_comparison()).format(personal_value=search.return_value())
 
 # %%
-Get_text(48,'OD_mean',OD)
+OD = Answer('Уровень организационного развития вашей НКО выше и составляет {personal_value}',
+    'Уровень организационного развития вашей НКО ниже и составляет {personal_value}',
+    'Уровень организационного развития вашей НКО сопоставимый и составляет {personal_value}',
+    'На большую часть утверждений вы затруднились ответить. К сожалению, мы не смогли рассчитать значение уровня организационного развития вашей НКО.')
+
+# %%
+SearchResults = Search('OD_mean',4)
+Get_text(SearchResults, OD)
 
 # %%
 # Функция проверяет содержит ли группа 
-def Check_group(indexes,ac, state=None, is_upper=None):
+def Check_search(indexes,ac, state=None, is_upper=None):
     group = Table.loc[:,indexes]
     group_comparison = []
     for index in group:
@@ -179,7 +200,7 @@ def Check_group(indexes,ac, state=None, is_upper=None):
             if SearchResults.is_upper() == True:
                 group_comparison.append(SearchResults.return_comparison())
         if is_upper == False:
-            if SearchResults.is_upper() == False:
+            if SearchResults.is_lower() == True:
                 group_comparison.append(SearchResults.return_comparison())
     match state:
             case 'nan':
@@ -204,7 +225,7 @@ def Check_group(indexes,ac, state=None, is_upper=None):
                     return False 
 
 # %%
-Check_group(['OD_mean'],4,state='more',is_upper=True)
+Check_search(['OD_mean'],4,state='more',is_upper=True)
 
 # %% [markdown]
 # **Что делать дальше?**
@@ -213,8 +234,29 @@ Check_group(['OD_mean'],4,state='more',is_upper=True)
 # 2. ~~Добавить Equals как проверку на доверительный интервал~~ Готово, сделал с помощью модуля scipy и 
 # 3. *Создать lists с названиями параметров для того, чтобы по ним нарисовать график*
 # 1. Перенести большую часть вопросов в класс вопросов
-# 4. ~~Расширить функцию Search на обработку значений группы вопросов~~ Готово, сделано с помощью Check_group
+# 1. Добавить для Get_text доп функции для модификации ответа
+# 4. ~~Расширить функцию Search на проверку значений группы вопросов~~ Готово, сделано с помощью Check_group
+# 4. ~~Расширить функцию Search на обработку группы вопросов~~ Готово, сделано с помощью атрибута multiple в Search
 # 4. ~~Расширить функцию Search на обработку значений, которые сравнивают значения персональные с общими, а их с 1,2,3 и 4,5~~ Готово, сделал с помощью проверки is_upper
 # 5. Собрать всё это вместе
 
 
+# %%
+
+# Файл с
+# Стуктура названий следующая <Тема на английском>_<Номер вопроса>
+
+Risk = Answer('Показатель для вашей организации {personal_value}, что говорит о том, что ваша организация более устойчива к рискам.',
+'Показатель для вашей организации {personal_value}, что говорит о том, что ваша организация менее устойчива к рискам.',
+'У вашей организации сопоставимое значение данного показателя и составляет {personal_value}.',
+'На большую часть вопросов вы затруднились ответить, к сожалению, мы не можем рассчитать для вас среднее значение по данному показателю.')
+
+OD1 = Answer('Уровень организационного развития вашей НКО выше и составляет {personal_value}',
+    'Уровень организационного развития вашей НКО ниже и составляет {personal_value}',
+    'Уровень организационного развития вашей НКО сопоставимый и составляет {personal_value}',
+    'На большую часть утверждений вы затруднилисответить. К сожалению, мы не смогли рассчитать значение уровня организационного развития вашей НКО.')
+
+Strategy1 = Answer('Этот показатель выше у вашей организации и составляет {personal_value}.',
+'Этот показатель ниже у вашей организации и составляет {personal_value}.',
+'У вашей организации сопоставимое значение данного показателя и составляет {personal_value}}.',
+'На большую часть вопросов вы затруднились ответить, к сожалению, мы не можем рассчитать для вас среднее значение по данному показателю.')
